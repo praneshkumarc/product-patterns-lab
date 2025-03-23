@@ -97,6 +97,18 @@ export default {
 				'pulse-subtle': {
 					'0%, 100%': { opacity: '1' },
 					'50%': { opacity: '0.8' }
+				},
+				'scale-in': {
+					'0%': { transform: 'scale(0.95)', opacity: '0' },
+					'100%': { transform: 'scale(1)', opacity: '1' }
+				},
+				'float': {
+					'0%, 100%': { transform: 'translateY(0)' },
+					'50%': { transform: 'translateY(-10px)' }
+				},
+				'shimmer': {
+					'0%': { backgroundPosition: '-200% 0' },
+					'100%': { backgroundPosition: '200% 0' }
 				}
 			},
 			animation: {
@@ -106,9 +118,43 @@ export default {
 				'fade-out': 'fade-out 0.3s ease-out',
 				'slide-up': 'slide-up 0.3s ease-out',
 				'slide-down': 'slide-down 0.3s ease-out',
-				'pulse-subtle': 'pulse-subtle 2s ease-in-out infinite'
+				'pulse-subtle': 'pulse-subtle 2s ease-in-out infinite',
+				'scale-in': 'scale-in 0.3s ease-out',
+				'float': 'float 6s ease-in-out infinite',
+				'shimmer': 'shimmer 2s infinite'
+			},
+			transitionDelay: {
+				'2000': '2000ms',
+			},
+			transitionDuration: {
+				'2000': '2000ms',
 			}
 		}
 	},
-	plugins: [require("tailwindcss-animate")],
+	plugins: [
+		require("tailwindcss-animate"),
+		function({ addUtilities }) {
+			const newUtilities = {
+				'.animation-delay-100': {
+					'animation-delay': '0.1s',
+				},
+				'.animation-delay-200': {
+					'animation-delay': '0.2s',
+				},
+				'.animation-delay-300': {
+					'animation-delay': '0.3s',
+				},
+				'.animation-delay-400': {
+					'animation-delay': '0.4s',
+				},
+				'.animation-delay-500': {
+					'animation-delay': '0.5s',
+				},
+				'.animation-delay-600': {
+					'animation-delay': '0.6s',
+				},
+			}
+			addUtilities(newUtilities)
+		}
+	],
 } satisfies Config;

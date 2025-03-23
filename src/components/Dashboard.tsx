@@ -45,9 +45,9 @@ const Dashboard = () => {
   const uniqueRegions = new Set(cleanedData.map(record => record.region)).size;
   
   return (
-    <div className="container mx-auto p-4 md:p-6 lg:p-8 max-w-screen-2xl animate-fade-in">
-      <header className="mb-8">
-        <h1 className="text-3xl font-semibold mb-2">Sales Data Analysis</h1>
+    <div className="container mx-auto p-4 md:p-6 lg:p-8 max-w-screen-2xl fade-scale">
+      <header className="mb-8 slide-down">
+        <h1 className="text-3xl font-semibold mb-2 text-gradient">Sales Data Analysis</h1>
         <p className="text-muted-foreground">
           Analyze historical sales data patterns to inform pricing decisions
         </p>
@@ -55,20 +55,20 @@ const Dashboard = () => {
       
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <div className="flex justify-between items-center">
-          <TabsList className="grid grid-cols-3 md:grid-cols-5 lg:flex lg:w-auto">
-            <TabsTrigger value="overview" className="px-4 py-2" disabled={!dataImported}>Overview</TabsTrigger>
-            <TabsTrigger value="import" className="px-4 py-2">Data Import</TabsTrigger>
-            <TabsTrigger value="analytics" className="px-4 py-2" disabled={!dataImported}>Sales Analytics</TabsTrigger>
-            <TabsTrigger value="trends" className="px-4 py-2" disabled={!dataImported}>Trend Analysis</TabsTrigger>
-            <TabsTrigger value="segments" className="px-4 py-2" disabled={!dataImported}>Segmentation</TabsTrigger>
+          <TabsList className="grid grid-cols-3 md:grid-cols-5 lg:flex lg:w-auto gradient-border">
+            <TabsTrigger value="overview" className="px-4 py-2 neo-button" disabled={!dataImported}>Overview</TabsTrigger>
+            <TabsTrigger value="import" className="px-4 py-2 neo-button">Data Import</TabsTrigger>
+            <TabsTrigger value="analytics" className="px-4 py-2 neo-button" disabled={!dataImported}>Sales Analytics</TabsTrigger>
+            <TabsTrigger value="trends" className="px-4 py-2 neo-button" disabled={!dataImported}>Trend Analysis</TabsTrigger>
+            <TabsTrigger value="segments" className="px-4 py-2 neo-button" disabled={!dataImported}>Segmentation</TabsTrigger>
           </TabsList>
         </div>
         
-        <TabsContent value="overview" className="space-y-6">
+        <TabsContent value="overview" className="space-y-6 slide-up">
           {dataImported ? (
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card className="hover-lift glass-card">
+                <Card className="hover-lift glass-card floating-card animation-delay-100">
                   <CardHeader className="pb-2">
                     <CardDescription>Total Sales</CardDescription>
                     <div className="flex justify-between items-center">
@@ -83,7 +83,7 @@ const Dashboard = () => {
                   </CardContent>
                 </Card>
                 
-                <Card className="hover-lift glass-card">
+                <Card className="hover-lift glass-card floating-card animation-delay-200">
                   <CardHeader className="pb-2">
                     <CardDescription>Average Order Value</CardDescription>
                     <div className="flex justify-between items-center">
@@ -98,7 +98,7 @@ const Dashboard = () => {
                   </CardContent>
                 </Card>
                 
-                <Card className="hover-lift glass-card">
+                <Card className="hover-lift glass-card floating-card animation-delay-300">
                   <CardHeader className="pb-2">
                     <CardDescription>Unique Products</CardDescription>
                     <div className="flex justify-between items-center">
@@ -113,7 +113,7 @@ const Dashboard = () => {
                   </CardContent>
                 </Card>
                 
-                <Card className="hover-lift glass-card">
+                <Card className="hover-lift glass-card floating-card animation-delay-400">
                   <CardHeader className="pb-2">
                     <CardDescription>Market Regions</CardDescription>
                     <div className="flex justify-between items-center">
@@ -130,7 +130,7 @@ const Dashboard = () => {
               </div>
               
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-                <Card className="glass-card col-span-2">
+                <Card className="glass-card col-span-2 fade-scale animation-delay-200 chart-container">
                   <CardHeader>
                     <CardTitle>Sales Performance Overview</CardTitle>
                     <CardDescription>Monthly sales trend over time</CardDescription>
@@ -140,7 +140,7 @@ const Dashboard = () => {
                   </CardContent>
                 </Card>
                 
-                <Card className="glass-card">
+                <Card className="glass-card fade-scale animation-delay-300 chart-container">
                   <CardHeader>
                     <CardTitle>Regional Distribution</CardTitle>
                     <CardDescription>Sales by geographical region</CardDescription>
@@ -156,7 +156,7 @@ const Dashboard = () => {
               </div>
               
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card className="glass-card">
+                <Card className="glass-card fade-scale animation-delay-400 chart-container">
                   <CardHeader>
                     <CardTitle>Seasonal Patterns</CardTitle>
                     <CardDescription>Quarterly sales analysis</CardDescription>
@@ -169,7 +169,7 @@ const Dashboard = () => {
                   </CardContent>
                 </Card>
                 
-                <Card className="glass-card">
+                <Card className="glass-card fade-scale animation-delay-500 chart-container">
                   <CardHeader>
                     <CardTitle>Customer Segmentation</CardTitle>
                     <CardDescription>Sales by customer type</CardDescription>
@@ -185,13 +185,13 @@ const Dashboard = () => {
               </div>
             </>
           ) : (
-            <Card className="glass-card p-8 text-center">
+            <Card className="glass-card p-8 text-center fade-scale">
               <CardContent className="pt-8">
                 <h3 className="text-xl font-medium mb-4">No Data Available</h3>
                 <p className="text-muted-foreground mb-6">
                   Please import data to view sales analytics and insights.
                 </p>
-                <Button onClick={() => setActiveTab('import')} className="w-full max-w-md mx-auto">
+                <Button onClick={() => setActiveTab('import')} className="w-full max-w-md mx-auto action-button">
                   Go to Data Import
                 </Button>
               </CardContent>
@@ -199,7 +199,7 @@ const Dashboard = () => {
           )}
         </TabsContent>
         
-        <TabsContent value="import">
+        <TabsContent value="import" className="slide-up">
           <Card className="glass-card">
             <CardHeader>
               <CardTitle>Data Import & Preprocessing</CardTitle>
@@ -213,9 +213,9 @@ const Dashboard = () => {
           </Card>
         </TabsContent>
         
-        <TabsContent value="analytics">
+        <TabsContent value="analytics" className="slide-up">
           {dataImported ? (
-            <Card className="glass-card">
+            <Card className="glass-card fade-scale">
               <CardHeader>
                 <CardTitle>Sales Analytics Dashboard</CardTitle>
                 <CardDescription>
@@ -227,13 +227,13 @@ const Dashboard = () => {
               </CardContent>
             </Card>
           ) : (
-            <Card className="glass-card p-8 text-center">
+            <Card className="glass-card p-8 text-center fade-scale">
               <CardContent className="pt-8">
                 <h3 className="text-xl font-medium mb-4">No Data Available</h3>
                 <p className="text-muted-foreground mb-6">
                   Please import data to view sales analytics.
                 </p>
-                <Button onClick={() => setActiveTab('import')} className="w-full max-w-md mx-auto">
+                <Button onClick={() => setActiveTab('import')} className="w-full max-w-md mx-auto action-button">
                   Go to Data Import
                 </Button>
               </CardContent>
@@ -241,9 +241,9 @@ const Dashboard = () => {
           )}
         </TabsContent>
         
-        <TabsContent value="trends">
+        <TabsContent value="trends" className="slide-up">
           {dataImported ? (
-            <Card className="glass-card">
+            <Card className="glass-card fade-scale">
               <CardHeader>
                 <CardTitle>Trend Analysis</CardTitle>
                 <CardDescription>
@@ -255,13 +255,13 @@ const Dashboard = () => {
               </CardContent>
             </Card>
           ) : (
-            <Card className="glass-card p-8 text-center">
+            <Card className="glass-card p-8 text-center fade-scale">
               <CardContent className="pt-8">
                 <h3 className="text-xl font-medium mb-4">No Data Available</h3>
                 <p className="text-muted-foreground mb-6">
                   Please import data to view trend analysis.
                 </p>
-                <Button onClick={() => setActiveTab('import')} className="w-full max-w-md mx-auto">
+                <Button onClick={() => setActiveTab('import')} className="w-full max-w-md mx-auto action-button">
                   Go to Data Import
                 </Button>
               </CardContent>
@@ -269,9 +269,9 @@ const Dashboard = () => {
           )}
         </TabsContent>
         
-        <TabsContent value="segments">
+        <TabsContent value="segments" className="slide-up">
           {dataImported ? (
-            <Card className="glass-card">
+            <Card className="glass-card fade-scale">
               <CardHeader>
                 <CardTitle>Data Segmentation</CardTitle>
                 <CardDescription>
@@ -288,13 +288,13 @@ const Dashboard = () => {
               </CardContent>
             </Card>
           ) : (
-            <Card className="glass-card p-8 text-center">
+            <Card className="glass-card p-8 text-center fade-scale">
               <CardContent className="pt-8">
                 <h3 className="text-xl font-medium mb-4">No Data Available</h3>
                 <p className="text-muted-foreground mb-6">
                   Please import data to view segmentation analysis.
                 </p>
-                <Button onClick={() => setActiveTab('import')} className="w-full max-w-md mx-auto">
+                <Button onClick={() => setActiveTab('import')} className="w-full max-w-md mx-auto action-button">
                   Go to Data Import
                 </Button>
               </CardContent>
@@ -303,7 +303,7 @@ const Dashboard = () => {
         </TabsContent>
       </Tabs>
       
-      <CollaborationPanel className="mt-8" />
+      <CollaborationPanel className="mt-8 fade-scale animation-delay-300" />
     </div>
   );
 };
