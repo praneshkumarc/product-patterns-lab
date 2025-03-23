@@ -489,7 +489,7 @@ const TrendAnalysis: React.FC<TrendAnalysisProps> = ({
                       <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
                       <XAxis 
                         dataKey="quarter" 
-                        tickFormatter={(value) => `${value} ${value.split('-')[0]}`}
+                        tickFormatter={(value) => value ? `${value.split('-')[0]}` : ''}
                       />
                       <YAxis tickFormatter={(value) => formatCurrency(value)} />
                       <Tooltip 
@@ -509,8 +509,15 @@ const TrendAnalysis: React.FC<TrendAnalysisProps> = ({
                       >
                         {seasonalData.map((entry) => {
                           // Assign color based on quarter
-                          const quarterIndex = parseInt(entry.quarter.split('-')[1].substring(1)) - 1;
-                          return <Cell key={`cell-${entry.quarter}-${entry.year}`} fill={colors[quarterIndex]} />;
+                          let quarterIndex = 0;
+                          if (entry.quarter && typeof entry.quarter === 'string' && entry.quarter.includes('-')) {
+                            const quarterPart = entry.quarter.split('-')[1];
+                            if (quarterPart && quarterPart.startsWith('Q')) {
+                              quarterIndex = parseInt(quarterPart.substring(1)) - 1;
+                              if (isNaN(quarterIndex)) quarterIndex = 0;
+                            }
+                          }
+                          return <Cell key={`cell-${entry.quarter}-${entry.year}`} fill={colors[quarterIndex % colors.length]} />;
                         })}
                       </Bar>
                       <Line 
