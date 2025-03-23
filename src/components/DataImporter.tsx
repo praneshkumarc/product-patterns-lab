@@ -11,11 +11,10 @@ import {
   FileText, 
   AlertCircle, 
   CheckCircle2, 
-  RefreshCw, 
-  Database 
+  RefreshCw
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
-import { SalesRecord, generateMockSalesData, addDataAnomalies } from '@/utils/mockData';
+import { SalesRecord } from '@/utils/mockData';
 import { cleanSalesData } from '@/utils/dataProcessing';
 
 interface DataImporterProps {
@@ -52,8 +51,20 @@ const DataImporter: React.FC<DataImporterProps> = ({ onDataImport, rawData }) =>
     
     reader.onload = (e) => {
       try {
-        // For demo, we'll just simulate processing the file
-        simulateFileProcessing();
+        // Parse the file content based on the file type
+        const content = e.target?.result as string;
+        let parsedData: SalesRecord[] = [];
+        
+        if (file.name.endsWith('.json')) {
+          parsedData = JSON.parse(content);
+        } else if (file.name.endsWith('.csv')) {
+          // Simple CSV parser
+          parsedData = parseCSV(content);
+        } else {
+          throw new Error('Unsupported file format. Please upload a CSV or JSON file.');
+        }
+        
+        simulateProcessing(parsedData);
       } catch (error) {
         setImportError('Failed to parse file. Please ensure it is valid CSV or JSON.');
         setIsProcessing(false);
@@ -80,8 +91,41 @@ const DataImporter: React.FC<DataImporterProps> = ({ onDataImport, rawData }) =>
     reader.readAsText(file);
   };
   
-  // Simulate file processing
-  const simulateFileProcessing = () => {
+  // Simple CSV parser
+  const parseCSV = (content: string): SalesRecord[] => {
+    const lines = content.split('\n');
+    const headers = lines[0].split(',');
+    
+    return lines.slice(1).filter(line => line.trim()).map((line, index) => {
+      const values = line.split(',');
+      const record: any = {
+        id: `SALE-${(index + 1000).toString().padStart(5, '0')}`,
+      };
+      
+      headers.forEach((header, i) => {
+        const value = values[i]?.trim();
+        const key = header.trim();
+        
+        if (key === 'date') {
+          record[key] = value;
+        } else if (['quantity', 'unitPrice', 'totalSales'].includes(key)) {
+          record[key] = parseFloat(value) || 0;
+        } else {
+          record[key] = value || '';
+        }
+      });
+      
+      // Calculate totalSales if not present
+      if (!record.totalSales && record.quantity && record.unitPrice) {
+        record.totalSales = record.quantity * record.unitPrice;
+      }
+      
+      return record as SalesRecord;
+    });
+  };
+  
+  // Simulate processing data
+  const simulateProcessing = (parsedData: SalesRecord[]) => {
     let progress = 0;
     const interval = setInterval(() => {
       progress += 5;
@@ -91,27 +135,33 @@ const DataImporter: React.FC<DataImporterProps> = ({ onDataImport, rawData }) =>
         clearInterval(interval);
         setIsProcessing(false);
         
-        // Generate example processed data
-        const generatedData = generateMockSalesData(1000);
-        setProcessedData(generatedData);
-        setDataPreview(generatedData.slice(0, 5));
+        setProcessedData(parsedData);
+        setDataPreview(parsedData.slice(0, 5));
         
-        // Calculate example data statistics
-        const missingCount = generatedData.filter(record => 
+        // Calculate data statistics
+        const missingCount = parsedData.filter(record => 
           !record.product || !record.category || !record.region || !record.customerType
         ).length;
         
+        const startDate = new Date(Math.min(...parsedData.map(r => new Date(r.date).getTime())));
+        const endDate = new Date(Math.max(...parsedData.map(r => new Date(r.date).getTime())));
+        const years = endDate.getFullYear() - startDate.getFullYear();
+        const dataCoverage = years <= 0 ? '< 1 year' : `${years} year${years > 1 ? 's' : ''}`;
+        
         setDataStats({
-          totalRecords: generatedData.length,
+          totalRecords: parsedData.length,
           missingValues: missingCount,
-          outliers: Math.floor(generatedData.length * 0.03),
-          dataCoverage: '3 years',
+          outliers: Math.floor(parsedData.length * 0.03), // Estimate outliers
+          dataCoverage,
         });
         
         toast({
           title: 'Import Complete',
-          description: `Successfully processed ${generatedData.length} records.`,
+          description: `Successfully processed ${parsedData.length} records.`,
         });
+        
+        // Send the data to the parent component
+        onDataImport(parsedData);
       }
     }, 100);
   };
@@ -144,45 +194,6 @@ const DataImporter: React.FC<DataImporterProps> = ({ onDataImport, rawData }) =>
     }, 100);
   };
   
-  // Handle generate sample data
-  const handleGenerateSampleData = () => {
-    setIsProcessing(true);
-    setProcessingProgress(0);
-    
-    // Simulate data generation
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += 10;
-      setProcessingProgress(progress);
-      
-      if (progress >= 100) {
-        clearInterval(interval);
-        
-        const generatedData = generateMockSalesData(1000);
-        const dataWithAnomalies = addDataAnomalies(generatedData);
-        
-        setProcessedData(dataWithAnomalies);
-        setDataPreview(dataWithAnomalies.slice(0, 5));
-        
-        setDataStats({
-          totalRecords: dataWithAnomalies.length,
-          missingValues: Math.floor(dataWithAnomalies.length * 0.05),
-          outliers: Math.floor(dataWithAnomalies.length * 0.01),
-          dataCoverage: '3 years',
-        });
-        
-        onDataImport(dataWithAnomalies);
-        
-        setIsProcessing(false);
-        
-        toast({
-          title: 'Sample Data Generated',
-          description: 'Generated 1,000 sample sales records for analysis.',
-        });
-      }
-    }, 100);
-  };
-  
   // Trigger file input click
   const triggerFileInput = () => {
     fileInputRef.current?.click();
@@ -198,51 +209,30 @@ const DataImporter: React.FC<DataImporterProps> = ({ onDataImport, rawData }) =>
         </TabsList>
         
         <TabsContent value="import" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Card className="hover-lift">
-              <CardContent className="p-6 flex flex-col items-center text-center">
-                <Upload size={40} className="mb-4 text-primary" />
-                <h3 className="text-lg font-medium mb-2">Upload Your Data</h3>
-                <p className="text-muted-foreground mb-4">
-                  Import your sales data from CSV, Excel, or JSON files
-                </p>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileSelect}
-                  accept=".csv,.xlsx,.json"
-                  className="hidden"
-                />
-                <Button 
-                  onClick={triggerFileInput} 
-                  disabled={isProcessing}
-                  className="w-full"
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Select File
-                </Button>
-              </CardContent>
-            </Card>
-            
-            <Card className="hover-lift">
-              <CardContent className="p-6 flex flex-col items-center text-center">
-                <Database size={40} className="mb-4 text-primary" />
-                <h3 className="text-lg font-medium mb-2">Generate Sample Data</h3>
-                <p className="text-muted-foreground mb-4">
-                  Create sample data to test the analysis features
-                </p>
-                <Button 
-                  onClick={handleGenerateSampleData} 
-                  disabled={isProcessing}
-                  variant="outline"
-                  className="w-full"
-                >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Generate Data
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
+          <Card className="hover-lift mx-auto max-w-md">
+            <CardContent className="p-6 flex flex-col items-center text-center">
+              <Upload size={40} className="mb-4 text-primary" />
+              <h3 className="text-lg font-medium mb-2">Upload Your Data</h3>
+              <p className="text-muted-foreground mb-4">
+                Import your sales data from CSV or JSON files
+              </p>
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileSelect}
+                accept=".csv,.json"
+                className="hidden"
+              />
+              <Button 
+                onClick={triggerFileInput} 
+                disabled={isProcessing}
+                className="w-full"
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Select File
+              </Button>
+            </CardContent>
+          </Card>
           
           {isProcessing && (
             <div className="mt-6 space-y-2">
