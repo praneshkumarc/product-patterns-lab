@@ -1,10 +1,12 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
+import { toast } from '@/components/ui/use-toast';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { 
   Users, 
   Send, 
@@ -13,77 +15,293 @@ import {
   BellDot, 
   FileCheck,
   DollarSign,
-  LineChart
+  LineChart,
+  Loader2
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { supabase } from '@/integrations/supabase/client';
+
+interface TeamMember {
+  id: string;
+  name: string;
+  role: string;
+  avatar: string | null;
+}
+
+interface Comment {
+  id: string;
+  user_name: string;
+  role: string;
+  avatar: string | null;
+  content: string;
+  created_at: string;
+}
+
+interface PricingStrategy {
+  id: string;
+  title: string;
+  description: string;
+  status: string;
+  author: string;
+  created_at: string;
+}
 
 interface CollaborationPanelProps {
   className?: string;
 }
 
 const CollaborationPanel: React.FC<CollaborationPanelProps> = ({ className }) => {
+  // State for UI data
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [pricingStrategies, setPricingStrategies] = useState<PricingStrategy[]>([]);
+  
+  // State for new data
   const [newComment, setNewComment] = useState('');
+  const [newStrategyTitle, setNewStrategyTitle] = useState('');
   const [newStrategy, setNewStrategy] = useState('');
   
-  // Example team members
-  const teamMembers = [
-    { name: 'Alex Johnson', role: 'Product Manager', avatar: '' },
-    { name: 'Jamie Smith', role: 'Data Analyst', avatar: '' },
-    { name: 'Casey Lee', role: 'Sales Director', avatar: '' },
-    { name: 'Taylor Wilson', role: 'Marketing Lead', avatar: '' },
-  ];
+  // Loading states
+  const [isLoadingTeam, setIsLoadingTeam] = useState(true);
+  const [isLoadingComments, setIsLoadingComments] = useState(true);
+  const [isLoadingStrategies, setIsLoadingStrategies] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // Example comments
-  const comments = [
-    { 
-      id: 1, 
-      user: 'Jamie Smith', 
-      role: 'Data Analyst',
-      avatar: '',
-      content: 'The Q4 seasonality trend is consistent across all years. We should plan our pricing strategy accordingly.',
-      time: '2 hours ago' 
-    },
-    { 
-      id: 2, 
-      user: 'Casey Lee', 
-      role: 'Sales Director',
-      avatar: '',
-      content: 'I noticed that corporate clients have a higher average order value. Suggests potential for segment-specific pricing.',
-      time: '3 hours ago' 
-    }
-  ];
+  // Responsive design
+  const isMobile = useIsMobile();
   
-  // Example pricing strategies
-  const pricingStrategies = [
-    {
-      id: 1,
-      title: 'Seasonal Pricing Adjustment',
-      description: 'Implement dynamic pricing based on quarterly demand patterns with 10-15% premium during Q4.',
-      status: 'Under Review',
-      author: 'Alex Johnson',
-      date: '2023-10-15'
-    },
-    {
-      id: 2,
-      title: 'Customer Segment Tiering',
-      description: 'Develop tiered pricing structure for different customer segments based on historical purchasing power.',
-      status: 'Approved',
-      author: 'Casey Lee',
-      date: '2023-10-10'
-    }
-  ];
+  // Fetch team members data
+  useEffect(() => {
+    const fetchTeamMembers = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('team_members')
+          .select('*')
+          .order('name');
+          
+        if (error) throw error;
+        
+        setTeamMembers(data);
+      } catch (error) {
+        console.error('Error fetching team members:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load team members. Please try again later.',
+          variant: 'destructive'
+        });
+      } finally {
+        setIsLoadingTeam(false);
+      }
+    };
+    
+    fetchTeamMembers();
+    
+    // Subscribe to real-time changes
+    const teamChannel = supabase
+      .channel('table-db-changes')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'team_members' },
+        (payload) => {
+          fetchTeamMembers();
+        }
+      )
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(teamChannel);
+    };
+  }, []);
   
-  const handleCommentSubmit = () => {
-    if (!newComment.trim()) return;
-    // In a real application, this would add a comment to the database
-    setNewComment('');
+  // Fetch comments data
+  useEffect(() => {
+    const fetchComments = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('comments')
+          .select('*')
+          .order('created_at', { ascending: false });
+          
+        if (error) throw error;
+        
+        setComments(data);
+      } catch (error) {
+        console.error('Error fetching comments:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load comments. Please try again later.',
+          variant: 'destructive'
+        });
+      } finally {
+        setIsLoadingComments(false);
+      }
+    };
+    
+    fetchComments();
+    
+    // Subscribe to real-time changes
+    const commentsChannel = supabase
+      .channel('comments-db-changes')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'comments' },
+        (payload) => {
+          fetchComments();
+        }
+      )
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(commentsChannel);
+    };
+  }, []);
+  
+  // Fetch pricing strategies data
+  useEffect(() => {
+    const fetchStrategies = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('pricing_strategies')
+          .select('*')
+          .order('created_at', { ascending: false });
+          
+        if (error) throw error;
+        
+        setPricingStrategies(data);
+      } catch (error) {
+        console.error('Error fetching strategies:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load pricing strategies. Please try again later.',
+          variant: 'destructive'
+        });
+      } finally {
+        setIsLoadingStrategies(false);
+      }
+    };
+    
+    fetchStrategies();
+    
+    // Subscribe to real-time changes
+    const strategiesChannel = supabase
+      .channel('strategies-db-changes')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'pricing_strategies' },
+        (payload) => {
+          fetchStrategies();
+        }
+      )
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(strategiesChannel);
+    };
+  }, []);
+  
+  // Format relative time
+  const formatRelativeTime = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diff = Math.floor((now.getTime() - date.getTime()) / 1000);
+    
+    if (diff < 60) return 'just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)} minutes ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} hours ago`;
+    return `${Math.floor(diff / 86400)} days ago`;
   };
   
-  const handleStrategySubmit = () => {
-    if (!newStrategy.trim()) return;
-    // In a real application, this would add a new strategy to the database
-    setNewStrategy('');
+  // Add a new comment
+  const handleCommentSubmit = async () => {
+    if (!newComment.trim()) return;
+    
+    setIsSubmitting(true);
+    try {
+      // Using Jamie Smith as the default user for this demo
+      const { error } = await supabase
+        .from('comments')
+        .insert([{
+          user_name: 'Jamie Smith',
+          role: 'Data Analyst',
+          avatar: '',
+          content: newComment
+        }]);
+        
+      if (error) throw error;
+      
+      setNewComment('');
+      toast({
+        title: 'Comment added',
+        description: 'Your comment has been posted successfully.'
+      });
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to post your comment. Please try again.',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  
+  // Add a new pricing strategy
+  const handleStrategySubmit = async () => {
+    if (!newStrategyTitle.trim() || !newStrategy.trim()) return;
+    
+    setIsSubmitting(true);
+    try {
+      // Using Alex Johnson as the default author for this demo
+      const { error } = await supabase
+        .from('pricing_strategies')
+        .insert([{
+          title: newStrategyTitle,
+          description: newStrategy,
+          author: 'Alex Johnson',
+          status: 'Under Review'
+        }]);
+        
+      if (error) throw error;
+      
+      setNewStrategyTitle('');
+      setNewStrategy('');
+      toast({
+        title: 'Strategy submitted',
+        description: 'Your pricing strategy has been submitted for review.'
+      });
+    } catch (error) {
+      console.error('Error adding strategy:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to submit your strategy. Please try again.',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  
+  // Handle strategy approval
+  const handleApproveStrategy = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('pricing_strategies')
+        .update({ status: 'Approved' })
+        .eq('id', id);
+        
+      if (error) throw error;
+      
+      toast({
+        title: 'Strategy approved',
+        description: 'The pricing strategy has been approved.'
+      });
+    } catch (error) {
+      console.error('Error approving strategy:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to approve the strategy. Please try again.',
+        variant: 'destructive'
+      });
+    }
   };
   
   return (
@@ -96,7 +314,7 @@ const CollaborationPanel: React.FC<CollaborationPanelProps> = ({ className }) =>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="team">
-          <TabsList className="mb-4">
+          <TabsList className={`mb-4 ${isMobile ? 'flex flex-wrap justify-start' : ''}`}>
             <TabsTrigger value="team" className="flex items-center">
               <Users className="h-4 w-4 mr-2" />
               Team
@@ -112,24 +330,30 @@ const CollaborationPanel: React.FC<CollaborationPanelProps> = ({ className }) =>
           </TabsList>
           
           <TabsContent value="team" className="space-y-4 animate-fade-in">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {teamMembers.map((member, index) => (
-                <Card key={index} className="hover-lift">
-                  <CardContent className="p-4 flex items-center space-x-4">
-                    <Avatar>
-                      <AvatarFallback>{member.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <h3 className="font-medium">{member.name}</h3>
-                      <p className="text-sm text-muted-foreground">{member.role}</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+            {isLoadingTeam ? (
+              <div className="flex justify-center items-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {teamMembers.map((member) => (
+                  <Card key={member.id} className="hover-lift">
+                    <CardContent className="p-4 flex items-center space-x-4">
+                      <Avatar>
+                        <AvatarFallback>{member.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <h3 className="font-medium">{member.name}</h3>
+                        <p className="text-sm text-muted-foreground">{member.role}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
             
             <div className="text-center mt-6">
-              <Button variant="outline">
+              <Button variant="outline" onClick={() => toast({ title: 'Coming soon', description: 'Team member invitation will be available soon.' })}>
                 <Users className="h-4 w-4 mr-2" />
                 Invite Team Member
               </Button>
@@ -137,29 +361,35 @@ const CollaborationPanel: React.FC<CollaborationPanelProps> = ({ className }) =>
           </TabsContent>
           
           <TabsContent value="discussions" className="space-y-4 animate-fade-in">
-            <div className="space-y-4 mb-6">
-              {comments.map((comment) => (
-                <div key={comment.id} className="flex gap-4 p-4 border rounded-lg bg-card/50">
-                  <Avatar>
-                    <AvatarFallback>{comment.user.split(' ').map(n => n[0]).join('')}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="font-medium">{comment.user}</h3>
-                        <p className="text-xs text-muted-foreground">{comment.role}</p>
+            {isLoadingComments ? (
+              <div className="flex justify-center items-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : (
+              <div className="space-y-4 mb-6 max-h-[500px] overflow-y-auto pr-1">
+                {comments.map((comment) => (
+                  <div key={comment.id} className="flex gap-4 p-4 border rounded-lg bg-card/50">
+                    <Avatar>
+                      <AvatarFallback>{comment.user_name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="font-medium">{comment.user_name}</h3>
+                          <p className="text-xs text-muted-foreground">{comment.role}</p>
+                        </div>
+                        <span className="text-xs text-muted-foreground">{formatRelativeTime(comment.created_at)}</span>
                       </div>
-                      <span className="text-xs text-muted-foreground">{comment.time}</span>
+                      <p className="mt-2 text-sm">{comment.content}</p>
                     </div>
-                    <p className="mt-2 text-sm">{comment.content}</p>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
             
             <div className="flex items-start gap-4">
               <Avatar>
-                <AvatarFallback>YO</AvatarFallback>
+                <AvatarFallback>JS</AvatarFallback>
               </Avatar>
               <div className="flex-1 space-y-2">
                 <Textarea 
@@ -169,8 +399,14 @@ const CollaborationPanel: React.FC<CollaborationPanelProps> = ({ className }) =>
                   onChange={(e) => setNewComment(e.target.value)}
                 />
                 <div className="flex justify-end">
-                  <Button onClick={handleCommentSubmit}>
-                    <Send className="h-4 w-4 mr-2" />
+                  <Button 
+                    onClick={handleCommentSubmit} 
+                    disabled={isSubmitting || !newComment.trim()}>
+                    {isSubmitting ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4 mr-2" />
+                    )}
                     Post Comment
                   </Button>
                 </div>
@@ -179,42 +415,51 @@ const CollaborationPanel: React.FC<CollaborationPanelProps> = ({ className }) =>
           </TabsContent>
           
           <TabsContent value="strategies" className="space-y-6 animate-fade-in">
-            <div className="space-y-4 mb-6">
-              {pricingStrategies.map((strategy) => (
-                <Card key={strategy.id} className="overflow-hidden">
-                  <div className="p-4">
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <h3 className="font-medium flex items-center">
-                          <DollarSign className="h-4 w-4 mr-1 text-primary" />
-                          {strategy.title}
-                        </h3>
-                        <p className="text-xs text-muted-foreground">
-                          Proposed by {strategy.author} on {strategy.date}
-                        </p>
+            {isLoadingStrategies ? (
+              <div className="flex justify-center items-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : (
+              <div className="space-y-4 mb-6 max-h-[300px] overflow-y-auto pr-1">
+                {pricingStrategies.map((strategy) => (
+                  <Card key={strategy.id} className="overflow-hidden">
+                    <div className="p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <h3 className="font-medium flex items-center">
+                            <DollarSign className="h-4 w-4 mr-1 text-primary" />
+                            {strategy.title}
+                          </h3>
+                          <p className="text-xs text-muted-foreground">
+                            Proposed by {strategy.author} on {new Date(strategy.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <Badge variant={strategy.status === 'Approved' ? 'outline' : 'secondary'}>
+                          {strategy.status}
+                        </Badge>
                       </div>
-                      <Badge variant={strategy.status === 'Approved' ? 'outline' : 'secondary'}>
-                        {strategy.status}
-                      </Badge>
-                    </div>
-                    <p className="text-sm">{strategy.description}</p>
-                    
-                    <div className="flex gap-2 mt-4">
-                      <Button variant="outline" size="sm">
-                        <FileText className="h-4 w-4 mr-2" />
-                        View Details
-                      </Button>
-                      {strategy.status === 'Under Review' && (
-                        <Button variant="outline" size="sm">
-                          <FileCheck className="h-4 w-4 mr-2" />
-                          Approve
+                      <p className="text-sm">{strategy.description}</p>
+                      
+                      <div className="flex gap-2 mt-4">
+                        <Button variant="outline" size="sm" onClick={() => toast({ title: 'Coming soon', description: 'Strategy details view will be available soon.' })}>
+                          <FileText className="h-4 w-4 mr-2" />
+                          View Details
                         </Button>
-                      )}
+                        {strategy.status === 'Under Review' && (
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleApproveStrategy(strategy.id)}>
+                            <FileCheck className="h-4 w-4 mr-2" />
+                            Approve
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
+                  </Card>
+                ))}
+              </div>
+            )}
             
             <Card>
               <CardHeader>
@@ -223,7 +468,11 @@ const CollaborationPanel: React.FC<CollaborationPanelProps> = ({ className }) =>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Strategy Title</label>
-                  <Input placeholder="Enter a concise title for your pricing strategy" />
+                  <Input 
+                    placeholder="Enter a concise title for your pricing strategy" 
+                    value={newStrategyTitle}
+                    onChange={(e) => setNewStrategyTitle(e.target.value)}
+                  />
                 </div>
                 
                 <div className="space-y-2">
@@ -237,8 +486,14 @@ const CollaborationPanel: React.FC<CollaborationPanelProps> = ({ className }) =>
                 </div>
                 
                 <div className="flex justify-end">
-                  <Button onClick={handleStrategySubmit}>
-                    <BellDot className="h-4 w-4 mr-2" />
+                  <Button 
+                    onClick={handleStrategySubmit}
+                    disabled={isSubmitting || !newStrategyTitle.trim() || !newStrategy.trim()}>
+                    {isSubmitting ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <BellDot className="h-4 w-4 mr-2" />
+                    )}
                     Submit for Review
                   </Button>
                 </div>
